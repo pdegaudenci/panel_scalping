@@ -234,24 +234,67 @@ def cargar_datos_mtf():
 mtf_1m, mtf_5m, mtf_15m, mtf_1h = cargar_datos_mtf()
 def preparar_tf(df):
 
-    adx = ta.adx(df["high"], df["low"], df["close"], length=14)
-    df["adx"] = adx["ADX_14"]
-    df["di_plus"] = adx["DMP_14"]
-    df["di_minus"] = adx["DMN_14"]
+    # -------- ADX + DI --------
+    if "adx" not in df.columns:
+        adx = ta.adx(df["high"], df["low"], df["close"], length=14)
+        df["adx"] = adx["ADX_14"]
+        df["di_plus"] = adx["DMP_14"]
+        df["di_minus"] = adx["DMN_14"]
 
-    df["rsi"] = ta.rsi(df["close"], length=14)
+    # -------- RSI --------
+    if "rsi" not in df.columns:
+        df["rsi"] = ta.rsi(df["close"], length=14)
 
-    df["ema20"] = ta.ema(df["close"], length=20)
-    df["ema50"] = ta.ema(df["close"], length=50)
-    df["ema200"] = ta.ema(df["close"], length=200)
+    # -------- EMAs --------
+    if "ema9" not in df.columns:
+        df["ema9"] = ta.ema(df["close"], length=9)
 
-    df["atr"] = ta.atr(df["high"], df["low"], df["close"], length=14)
+    if "ema20" not in df.columns:
+        df["ema20"] = ta.ema(df["close"], length=20)
+
+    if "ema50" not in df.columns:
+        df["ema50"] = ta.ema(df["close"], length=50)
+
+    if "ema200" not in df.columns:
+        df["ema200"] = ta.ema(df["close"], length=200)
+
+    # -------- ATR --------
+    if "atr" not in df.columns:
+        df["atr"] = ta.atr(df["high"], df["low"], df["close"], length=14)
 
     return df
 mtf_1m  = preparar_tf(mtf_1m)
 mtf_5m  = preparar_tf(mtf_5m)
 mtf_15m = preparar_tf(mtf_15m)
 mtf_1h  = preparar_tf(mtf_1h)
+
+# ===== EMAs 5m =====
+mtf_5m["ema9"]  = ta.ema(mtf_5m["close"], length=9)
+mtf_5m["ema20"] = ta.ema(mtf_5m["close"], length=20)
+mtf_5m["ema50"] = ta.ema(mtf_5m["close"], length=50)
+last5_m = mtf_5m.iloc[-1]
+
+ema9_5m  = last5_m["ema9"]
+ema20_5m = last5_m["ema20"]
+ema50_5m = last5_m["ema50"]
+
+price5m  = last5_m["close"]
+def emas_abiertas_5m(direccion, ema9, ema20, ema50, price):
+
+    # orden direccional
+    if direccion == "LONG":
+        orden_correcto = ema9 > ema20 > ema50
+    else:
+        orden_correcto = ema9 < ema20 < ema50
+
+    # distancias (lo realmente importante)
+    dist_1 = abs(ema9 - ema20) / price
+    dist_2 = abs(ema20 - ema50) / price
+
+    # umbral empírico (probado en BTC 1m/5m)
+    abiertas = (dist_1 > 0.00035) and (dist_2 > 0.00035)
+
+    return orden_correcto and abiertas, dist_1, dist_2
 def evaluar_mtf(direccion):
 
     def check(cond, texto, valor):
@@ -1547,7 +1590,30 @@ if evaluar:
         st.success(f"{direccion} VÁLIDO")
     else:
         st.error(f"{direccion} INVÁLIDO")
+    # =========================================================
+# FILTRO PRINCIPAL — EMAs ABIERTAS 5m
+# =========================================================
 
+    emas_ok, d1, d2 = emas_abiertas_5m(
+        direccion,
+        ema9_5m,
+        ema20_5m,
+        ema50_5m,
+        price5m
+    )
+
+    st.markdown("### 🔑 Filtro de Impulso Institucional (5m)")
+
+    colA, colB, colC = st.columns(3)
+
+    colA.metric("EMA9-EMA20 distancia", f"{d1*100:.3f}%")
+    colB.metric("EMA20-EMA50 distancia", f"{d2*100:.3f}%")
+    colC.metric("EMAs abiertas", "SI" if emas_ok else "NO")
+
+    if emas_ok:
+        st.success("✔ Estructura de impulso válida — compradores dominando")
+    else:
+        st.error("✖ Sin expansión de EMAs → alta probabilidad de stop loss")
     for tf, (valido_tf, checks) in detalle.items():
 
         st.subheader(f"{tf} ({'VÁLIDO' if valido_tf else 'INVÁLIDO'})")
