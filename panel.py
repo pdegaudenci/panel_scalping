@@ -212,26 +212,30 @@ def get_klines(symbol, interval, limit=500):
     df.sort_index(inplace=True)
 
     return df
-@st.cache_data(ttl=10)  # evita bloquear Binance
-def cargar_datos():
-    df_1m = get_klines(SYMBOL, "1m")
-    df_5m = get_klines(SYMBOL, "5m")
-    return df_1m, df_5m
-df_1m, df_5m = cargar_datos()
-# ======================================================
-# CARGA DE DATOS SOLO PARA VALIDACIÓN MULTITIMEFRAME
-# ======================================================
+@st.cache_data(ttl=60, show_spinner=False)
+def obtener_datos_binance():
 
-@st.cache_data(ttl=60)
-def cargar_datos_mtf():
+    data = {}
 
-    mtf_1m  = get_klines(SYMBOL, "1m", 500)
-    mtf_5m  = get_klines(SYMBOL, "5m", 500)
-    mtf_15m = get_klines(SYMBOL, "15m", 500)
-    mtf_1h  = get_klines(SYMBOL, "1h", 500)
+    timeframes = {
+        "1m":500,
+        "5m":500,
+        "15m":500,
+        "1h":500
+    }
 
-    return mtf_1m, mtf_5m, mtf_15m, mtf_1h
-mtf_1m, mtf_5m, mtf_15m, mtf_1h = cargar_datos_mtf()
+    for tf, limit in timeframes.items():
+        data[tf] = get_klines(SYMBOL, tf, limit)
+
+    return data
+data = obtener_datos_binance()
+
+df_1m = data["1m"]
+df_5m = data["5m"]
+mtf_1m = data["1m"]
+mtf_5m = data["5m"]
+mtf_15m = data["15m"]
+mtf_1h = data["1h"]
 def preparar_tf(df):
 
     # -------- ADX + DI --------
@@ -1113,8 +1117,8 @@ with colA:
 
 with colB:
     if st.button("Actualizar mercado ahora"):
-        st.cache_data.clear()   # borra cache
-        st.rerun()              # reinicia script
+        st.cache_data.clear()
+        st.toast("Datos de mercado actualizados")             # reinicia script
 import os
 from datetime import datetime
 
@@ -2005,7 +2009,12 @@ def get_historical_klines(symbol, interval, start_time, end_time):
             "limit": 1000
         }
 
-        data = requests.get(url, params=params).json()
+        response = requests.get(url, params=params, timeout=10)
+
+        if response.status_code != 200:
+            return pd.DataFrame(columns=["open","high","low","close","volume"])
+
+        data = response.json()
 
         if not data:
             break
@@ -2044,8 +2053,7 @@ end_ms = int(now_utc.timestamp() * 1000)
 
 SYMBOL = "BTCUSDC"
 
-df_1m_full = get_historical_klines(SYMBOL, "1m", start_ms, end_ms)
-df_5m_full = get_historical_klines(SYMBOL, "5m", start_ms, end_ms)
+
 import pandas_ta as ta
 
 # ----- 5M -----
@@ -2091,7 +2099,8 @@ evaluar_hist = st.button("Analizar momento histórico")
 # ============================================================
 
 if evaluar_hist:
-
+    df_1m_full = get_historical_klines(SYMBOL, "1m", start_ms, end_ms)
+    df_5m_full = get_historical_klines(SYMBOL, "5m", start_ms, end_ms)
     # ----- Convertir hora Madrid -> UTC -----
     from datetime import datetime
     import pytz
