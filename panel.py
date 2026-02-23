@@ -2056,25 +2056,7 @@ SYMBOL = "BTCUSDC"
 
 import pandas_ta as ta
 
-# ----- 5M -----
-adx = ta.adx(df_5m_full["high"], df_5m_full["low"], df_5m_full["close"], length=14)
-df_5m_full["adx"] = adx["ADX_14"]
-df_5m_full["di_plus"] = adx["DMP_14"]
-df_5m_full["di_minus"] = adx["DMN_14"]
 
-df_5m_full["rsi"] = ta.rsi(df_5m_full["close"], length=14)
-
-supertrend = ta.supertrend(df_5m_full["high"], df_5m_full["low"], df_5m_full["close"], length=10, multiplier=3)
-df_5m_full["st_dir"] = supertrend["SUPERTd_10_3.0"]
-
-df_5m_full["upper"] = df_5m_full["high"].rolling(100).max()
-df_5m_full["lower"] = df_5m_full["low"].rolling(100).min()
-
-# ----- 1M -----
-df_1m_full["rsi"] = ta.rsi(df_1m_full["close"], length=9)
-
-df_1m_full["candle_size"] = df_1m_full["high"] - df_1m_full["low"]
-df_1m_full["avg_size"] = df_1m_full["candle_size"].rolling(20).mean()
 st.markdown("---")
 st.title("📜 Panel 3 — Evaluador Histórico de Trade")
 
@@ -2101,6 +2083,25 @@ evaluar_hist = st.button("Analizar momento histórico")
 if evaluar_hist:
     df_1m_full = get_historical_klines(SYMBOL, "1m", start_ms, end_ms)
     df_5m_full = get_historical_klines(SYMBOL, "5m", start_ms, end_ms)
+    # ----- 5M -----
+    adx = ta.adx(df_5m_full["high"], df_5m_full["low"], df_5m_full["close"], length=14)
+    df_5m_full["adx"] = adx["ADX_14"]
+    df_5m_full["di_plus"] = adx["DMP_14"]
+    df_5m_full["di_minus"] = adx["DMN_14"]
+
+    df_5m_full["rsi"] = ta.rsi(df_5m_full["close"], length=14)
+
+    supertrend = ta.supertrend(df_5m_full["high"], df_5m_full["low"], df_5m_full["close"], length=10, multiplier=3)
+    df_5m_full["st_dir"] = supertrend["SUPERTd_10_3.0"]
+
+    df_5m_full["upper"] = df_5m_full["high"].rolling(100).max()
+    df_5m_full["lower"] = df_5m_full["low"].rolling(100).min()
+
+    # ----- 1M -----
+    df_1m_full["rsi"] = ta.rsi(df_1m_full["close"], length=9)
+
+    df_1m_full["candle_size"] = df_1m_full["high"] - df_1m_full["low"]
+    df_1m_full["avg_size"] = df_1m_full["candle_size"].rolling(20).mean()
     # ----- Convertir hora Madrid -> UTC -----
     from datetime import datetime
     import pytz
